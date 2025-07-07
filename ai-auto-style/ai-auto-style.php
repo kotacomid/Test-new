@@ -34,8 +34,8 @@ if ( ! defined( 'AIAS_PLUGIN_URL' ) ) {
  * Enqueue Gutenberg editor assets for our plugin.
  */
 function aias_enqueue_editor_assets() {
-    $script_path = AIAS_PLUGIN_DIR . 'assets/index.js';
-    $script_url  = AIAS_PLUGIN_URL . 'assets/index.js';
+    $script_path = AIAS_PLUGIN_DIR . 'build/index.js';
+    $script_url  = AIAS_PLUGIN_URL . 'build/index.js';
 
     wp_enqueue_script(
         'aias-editor-script',
