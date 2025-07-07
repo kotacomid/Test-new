@@ -45,6 +45,9 @@ function aias_enqueue_editor_assets() {
             'wp-edit-post',
             'wp-element',
             'wp-components',
+            'wp-api-fetch',
+            'wp-data',
+            'wp-blocks',
         ),
         file_exists( $script_path ) ? filemtime( $script_path ) : AIAS_PLUGIN_FILE,
         true

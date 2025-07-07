@@ -3,7 +3,6 @@
 	const { PluginSidebar, PluginSidebarMoreMenuItem } = wp.editPost;
 	const { PanelBody, TextControl, Button, Spinner, Notice } = wp.components;
 	const { Fragment, useState } = wp.element;
-	const { apiFetch } = wp;
 	const { createBlock } = wp.blocks;
 	const { dispatch } = wp.data;
 
@@ -81,7 +80,28 @@
 		return createBlock( resolvedName, attrs, innerBlocks );
 	};
 
+	/**
+	 * Apply global palette & fonts from AI layout if provided.
+	 */
+	const applyGlobalStyles = ( layout ) => {
+		if ( ! layout || ! layout.palette ) return;
+		const rootVars = Object.entries( layout.palette )
+			.map( ( [ key, val ] ) => `--aias-${ key }: ${ val };` )
+			.join( '' );
+		if ( rootVars ) {
+			let styleEl = document.getElementById( 'aias-palette' );
+			if ( ! styleEl ) {
+				styleEl = document.createElement( 'style' );
+				styleEl.id = 'aias-palette';
+				document.head.appendChild( styleEl );
+			}
+			styleEl.innerHTML = `:root{${ rootVars }}`;
+		}
+	};
+
 	const insertGeneratedBlocks = ( layout ) => {
+		// Apply palette first
+		applyGlobalStyles( layout );
 		if ( ! layout || ! Array.isArray( layout.sections ) ) {
 			console.warn( 'AI Auto Style: invalid layout schema', layout );
 			throw new Error( 'Invalid layout structure.' );
@@ -123,7 +143,7 @@
 			setSuccess( false );
 
 			try {
-				const result = await apiFetch( {
+				const result = await wp.apiFetch( {
 					path: '/ai-auto-style/v1/generate',
 					method: 'POST',
 					data: { prompt },
