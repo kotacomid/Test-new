@@ -22,6 +22,45 @@
 	};
 
 	/**
+	 * Transform AI attributes to actual block attribute keys for specific blocks.
+	 * @param {string} blockName Resolved Gutenberg block name.
+	 * @param {Object} attrs AI provided attributes.
+	 * @return {Object}
+	 */
+	const transformAttributes = ( blockName, attrs = {} ) => {
+		const a = { ...attrs };
+
+		switch ( blockName ) {
+			case 'greenshift-blocks/advanced-heading':
+				// AI may send "text" instead of "content".
+				if ( a.text && ! a.content ) {
+					a.content = a.text;
+					delete a.text;
+				}
+				break;
+			case 'core/paragraph':
+				if ( a.text && ! a.content ) {
+					a.content = a.text;
+					delete a.text;
+				}
+				break;
+			case 'greenshift-blocks/button':
+				if ( a.label && ! a.text ) {
+					a.text = a.label;
+					delete a.label;
+				}
+				if ( a.href && ! a.url ) {
+					a.url = a.href;
+					delete a.href;
+				}
+				break;
+			default:
+				break;
+		}
+		return a;
+	};
+
+	/**
 	 * Translate AI block object to Gutenberg block.
 	 * @param {Object} aiBlock { name, attributes, innerBlocks }
 	 * @return {BlockInstance}
@@ -31,15 +70,15 @@
 			throw new Error( 'Invalid block definition.' );
 		}
 
-		const blockName = BLOCK_MAP[ aiBlock.name ] || aiBlock.name; // fallback to provided name
-		const attrs = aiBlock.attributes || {};
+		const resolvedName = BLOCK_MAP[ aiBlock.name ] || aiBlock.name;
+		const attrs = transformAttributes( resolvedName, aiBlock.attributes || {} );
 
 		let innerBlocks = [];
 		if ( Array.isArray( aiBlock.innerBlocks ) && aiBlock.innerBlocks.length ) {
 			innerBlocks = aiBlock.innerBlocks.map( buildBlockFromAI );
 		}
 
-		return createBlock( blockName, attrs, innerBlocks );
+		return createBlock( resolvedName, attrs, innerBlocks );
 	};
 
 	const insertGeneratedBlocks = ( layout ) => {
