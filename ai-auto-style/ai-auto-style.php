@@ -51,3 +51,7 @@ function aias_enqueue_editor_assets() {
     );
 }
 add_action( 'enqueue_block_editor_assets', 'aias_enqueue_editor_assets' );
+
+// Load plugin files.
+require_once AIAS_PLUGIN_DIR . 'includes/OpenAI.php';
+require_once AIAS_PLUGIN_DIR . 'includes/Rest.php';
