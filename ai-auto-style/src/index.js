@@ -7,29 +7,57 @@
 	const { createBlock } = wp.blocks;
 	const { dispatch } = wp.data;
 
+	/** Map shorthand names to actual Gutenberg/GreenShift block names */
+	const BLOCK_MAP = {
+		container: 'greenshift-blocks/box',
+		row: 'greenshift-blocks/row',
+		column: 'greenshift-blocks/column',
+		heading: 'greenshift-blocks/advanced-heading',
+		text: 'core/paragraph',
+		paragraph: 'core/paragraph',
+		image: 'greenshift-blocks/advanced-image',
+		button: 'greenshift-blocks/button',
+		video: 'greenshift-blocks/video',
+		infobox: 'greenshift-blocks/infobox',
+	};
+
 	/**
-	 * Helper: insert generated blocks into the editor.
-	 * Expects schema with shape { sections: [ { blocks: [ { name, attributes } ] } ] }
-	 * @param {Object} layout Layout JSON returned from AI.
+	 * Translate AI block object to Gutenberg block.
+	 * @param {Object} aiBlock { name, attributes, innerBlocks }
+	 * @return {BlockInstance}
 	 */
-	const insertGeneratedBlocks = ( layout ) => {
-		if ( ! layout || ! Array.isArray( layout.sections ) ) {
-			// eslint-disable-next-line no-console
-			console.warn( 'AI Auto Style: invalid layout schema', layout );
-			return;
+	const buildBlockFromAI = ( aiBlock ) => {
+		if ( ! aiBlock || ! aiBlock.name ) {
+			throw new Error( 'Invalid block definition.' );
 		}
 
-		const blocksToInsert = [];
+		const blockName = BLOCK_MAP[ aiBlock.name ] || aiBlock.name; // fallback to provided name
+		const attrs = aiBlock.attributes || {};
+
+		let innerBlocks = [];
+		if ( Array.isArray( aiBlock.innerBlocks ) && aiBlock.innerBlocks.length ) {
+			innerBlocks = aiBlock.innerBlocks.map( buildBlockFromAI );
+		}
+
+		return createBlock( blockName, attrs, innerBlocks );
+	};
+
+	const insertGeneratedBlocks = ( layout ) => {
+		if ( ! layout || ! Array.isArray( layout.sections ) ) {
+			console.warn( 'AI Auto Style: invalid layout schema', layout );
+			throw new Error( 'Invalid layout structure.' );
+		}
+
+		let blocksToInsert = [];
 		layout.sections.forEach( ( section ) => {
 			if ( ! section.blocks || ! Array.isArray( section.blocks ) ) {
 				return;
 			}
 			section.blocks.forEach( ( blk ) => {
 				try {
-					blocksToInsert.push( createBlock( blk.name, blk.attributes || {} ) );
+					blocksToInsert.push( buildBlockFromAI( blk ) );
 				} catch ( e ) {
-					// eslint-disable-next-line no-console
-					console.error( 'Failed to create block', blk, e );
+					console.error( 'Block build failed', e );
 				}
 			} );
 		} );
@@ -65,6 +93,7 @@
 				if ( result && result.success ) {
 					insertGeneratedBlocks( result.data );
 					setSuccess( true );
+					setError( null );
 					setPrompt( '' );
 				} else {
 					setError( 'Unexpected response from server.' );
