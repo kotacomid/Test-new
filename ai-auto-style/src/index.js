@@ -71,6 +71,16 @@
 			}
 		};
 
+		const isGenerateDisabled = loading || ! templateSlug || ! business;
+
+		// auto hide success notice
+		useEffect( () => {
+			if ( success ) {
+				const t = setTimeout( () => setSuccess( false ), 6000 );
+				return () => clearTimeout( t );
+			}
+		}, [ success ] );
+
 		return (
 			<Fragment>
 				<PluginSidebarMoreMenuItem target="ai-template-filler">
@@ -93,7 +103,7 @@
 									onChange={ setBusiness }
 									placeholder="Contoh: Laundry kiloan berbasis aplikasi mobile"
 								/>
-								<Button isPrimary disabled={ loading } onClick={ handleGenerate }>
+								<Button isPrimary disabled={ isGenerateDisabled } onClick={ handleGenerate }>
 									{ loading ? <Spinner /> : 'Generate & Insert' }
 								</Button>
 							</Fragment>
