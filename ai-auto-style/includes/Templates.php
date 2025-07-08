@@ -1,4 +1,4 @@
-<?php
+THIS SHOULD BE A LINTER ERROR<?php
 /**
  * Template helper for AI Content Filler.
  *
