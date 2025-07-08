@@ -22,7 +22,13 @@ require_once GAI_PLUGIN_DIR . 'includes/OpenAI.php';
 require_once GAI_PLUGIN_DIR . 'includes/Generator.php';
 require_once GAI_PLUGIN_DIR . 'includes/Rest.php';
 
-add_action( 'admin_enqueue_scripts', function( $hook ){ if( $hook==='toplevel_page_gai-landing'){ wp_enqueue_script('gai-admin', plugin_dir_url(__FILE__).'admin.js',['wp-api-fetch','wp-element'],null,true); wp_localize_script('gai-admin','GAI',{nonce:wp_create_nonce('wp_rest')}); }} );
+add_action( 'admin_enqueue_scripts', function( $hook ){
+    if( $hook==='toplevel_page_gai-landing'){
+        wp_enqueue_style('gai-admin', plugin_dir_url(__FILE__).'admin.css');
+        wp_enqueue_script('gai-admin', plugin_dir_url(__FILE__).'admin.js', ['wp-api-fetch','wp-element'], null, true);
+        wp_localize_script('gai-admin','GAI',[ 'nonce'=> wp_create_nonce('wp_rest') ]);
+    }
+} );
 
 // Register admin menu.
 add_action( 'admin_menu', function () {
@@ -33,7 +39,7 @@ function gai_render_admin() {
     ?>
     <div class="wrap">
         <h1>Generate Landing Page</h1>
-        <form method="post">
+        <form id="gai-form" method="post" class="gai-admin-form">
             <?php wp_nonce_field( 'gai_generate' ); ?>
             <p><label for="gai_desc">Deskripsi bisnis / tujuan halaman</label><br>
                 <textarea name="gai_desc" id="gai_desc" class="widefat" rows="4" required></textarea></p>
@@ -42,7 +48,11 @@ function gai_render_admin() {
                     <label><input type="checkbox" name="gai_sections[]" value="<?php echo esc_attr( $slug ); ?>" checked> <?php echo esc_html( $section['title'] ); ?></label><br>
                 <?php endforeach; ?>
             </p>
-            <p><input type="submit" class="button button-primary" value="Generate Page"></p>
+            <p>
+                <button id="gai-submit" type="submit" class="button button-primary">Generate Page</button>
+                <span id="gai-spinner" class="spinner" style="float:none;vertical-align:middle;"></span>
+            </p>
+            <div id="gai-notice"></div>
         </form>
     </div>
     <?php
