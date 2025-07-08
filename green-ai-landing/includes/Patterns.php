@@ -84,4 +84,35 @@ class GAIPatterns {
         }
         return $html;
     }
+
+    public static function register_patterns() {
+        foreach ( self::sections_list() as $slug => $def ) {
+            register_block_pattern( $def['pattern_slug'], array(
+                'title'       => $def['title'],
+                'content'     => self::sample_content( $slug ),
+                'categories'  => array( 'text' ),
+            ) );
+        }
+    }
+
+    private static function sample_content( $slug ) {
+        switch ( $slug ) {
+            case 'hero':
+                return '<!-- wp:group {"align":"full","style":{"spacing":{"padding":{"top":"80px","bottom":"80px"}}}} --><div class="wp-block-group alignfull" style="padding-top:80px;padding-bottom:80px"><!-- wp:heading {"textAlign":"center","level":1} --><h1 class="has-text-align-center">{{headline}}</h1><!-- /wp:heading --><!-- wp:paragraph {"align":"center"} --><p class="has-text-align-center">{{subheadline}}</p><!-- /wp:paragraph --><!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} --><div class="wp-block-buttons"><!-- wp:button {"className":"is-style-fill"} --><div class="wp-block-button is-style-fill"><a class="wp-block-button__link">{{cta_text}}</a></div><!-- /wp:button --></div><!-- /wp:buttons --></div><!-- /wp:group -->';
+            case 'features':
+                return '<!-- wp:columns --><div class="wp-block-columns"><!-- wp:column --><div class="wp-block-column"><!-- wp:paragraph --><p>{{feature_1}}</p><!-- /wp:paragraph --></div><!-- /wp:column --><!-- wp:column --><div class="wp-block-column"><p>{{feature_2}}</p></div><!-- /wp:column --><!-- wp:column --><div class="wp-block-column"><p>{{feature_3}}</p></div><!-- /wp:column --><!-- wp:column --><div class="wp-block-column"><p>{{feature_4}}</p></div><!-- /wp:column --></div><!-- /wp:columns -->';
+            case 'info':
+                return '<!-- wp:heading --><h2>{{info_title}}</h2><!-- /wp:heading --><!-- wp:paragraph --><p>{{info_body}}</p><!-- /wp:paragraph -->';
+            case 'pricing':
+                return '<!-- wp:group --><div class="wp-block-group"><h3>{{price_title}}</h3><p>{{price_desc}}</p><p><strong>{{price_price}}</strong></p></div><!-- /wp:group -->';
+            case 'cta':
+                return '<!-- wp:cover {"align":"full"} --><div class="wp-block-cover alignfull"><span aria-hidden="true" class="wp-block-cover__background"></span><div class="wp-block-cover__inner-container"><h2>{{cta_headline}}</h2><p>{{cta_text}}</p></div></div><!-- /wp:cover -->';
+            case 'faq':
+                return '<!-- wp:group --><div class="wp-block-group"><details><summary>{{faq_q1}}</summary><p>{{faq_a1}}</p></details><details><summary>{{faq_q2}}</summary><p>{{faq_a2}}</p></details></div><!-- /wp:group -->';
+            default:
+                return '';
+        }
+    }
 }
+
+add_action( 'init', ['GAIPatterns','register_patterns'] );
