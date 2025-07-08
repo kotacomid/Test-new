@@ -35,6 +35,22 @@ class AIAS_REST {
                 ),
             ),
         ) );
+
+        register_rest_route( self::NAMESPACE, '/templates', array(
+            'methods'             => 'GET',
+            'callback'            => array( __CLASS__, 'templates_callback' ),
+            'permission_callback' => array( __CLASS__, 'permissions_check' ),
+        ) );
+
+        register_rest_route( self::NAMESPACE, '/fill', array(
+            'methods'             => 'POST',
+            'callback'            => array( __CLASS__, 'fill_callback' ),
+            'permission_callback' => array( __CLASS__, 'permissions_check' ),
+            'args'                => array(
+                'template' => array( 'required' => true, 'type' => 'string' ),
+                'business' => array( 'required' => true, 'type' => 'string' ),
+            ),
+        ) );
     }
 
     /**
@@ -79,6 +95,52 @@ class AIAS_REST {
         return rest_ensure_response( array(
             'success' => true,
             'data'    => $result,
+        ) );
+    }
+
+    public static function templates_callback() {
+        return rest_ensure_response( AIAS_Templates::get_templates() );
+    }
+
+    public static function fill_callback( WP_REST_Request $request ) {
+        $template_slug = sanitize_key( $request->get_param( 'template' ) );
+        $business      = sanitize_text_field( $request->get_param( 'business' ) );
+
+        $templates = AIAS_Templates::get_templates();
+        if ( ! isset( $templates[ $template_slug ] ) ) {
+            return new WP_Error( 'aias_bad_template', __( 'Invalid template.', 'ai-auto-style' ), array( 'status' => 400 ) );
+        }
+
+        $placeholders = $templates[ $template_slug ]['placeholders'];
+
+        // Build prompt for OpenAI.
+        $prompt  = 'Buat teks copywriting dalam Bahasa Indonesia untuk landing page bisnis berikut. '; 
+        $prompt .= 'Bisnis: ' . $business . ".\n";
+        $prompt .= 'Kembalikan JSON persis dengan keys berikut: ' . implode( ',', $placeholders ) . '. Contoh: {"headline":"..."}. Jangan kembalikan apapun selain JSON.';
+
+        $openai_response = AIAS_OpenAI::generate( $prompt, array( 'temperature' => 0.4 ) );
+        if ( is_wp_error( $openai_response ) ) {
+            return $openai_response;
+        }
+
+        // Ensure all placeholders exist.
+        foreach ( $placeholders as $key ) {
+            if ( empty( $openai_response[ $key ] ) ) {
+                $openai_response[ $key ] = '';
+            }
+        }
+
+        $html = AIAS_Templates::get_template_content( $template_slug );
+        if ( ! $html ) {
+            return new WP_Error( 'aias_template_missing', __( 'Template content not found.', 'ai-auto-style' ), array( 'status' => 500 ) );
+        }
+
+        $filled_html = AIAS_Templates::fill_placeholders( $html, $openai_response );
+
+        return rest_ensure_response( array(
+            'success' => true,
+            'html'    => $filled_html,
+            'data'    => $openai_response,
         ) );
     }
 }
