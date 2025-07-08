@@ -1,4 +1,4 @@
-THIS SHOULD BE A LINTER ERROR<?php
+<?php
 /**
  * Template helper for AI Content Filler.
  *
@@ -20,15 +20,35 @@ class AIAS_Templates {
      */
     public static function get_templates() {
         return array(
-            'hero-saas-dark' => array(
-                'title'        => __( 'Hero SaaS Dark', 'ai-auto-style' ),
-                'pattern_slug' => 'aias/hero-saas-dark', // block pattern slug.
+            'hero' => array(
+                'title'        => __( 'Hero Section', 'ai-auto-style' ),
+                'pattern_slug' => 'aias/hero',
                 'placeholders' => array( 'headline', 'subheadline', 'cta_text' ),
             ),
-            'features-4-grid' => array(
-                'title'        => __( 'Features Grid 4', 'ai-auto-style' ),
-                'pattern_slug' => 'aias/features-4-grid',
+            'features' => array(
+                'title'        => __( 'Features Section', 'ai-auto-style' ),
+                'pattern_slug' => 'aias/features',
                 'placeholders' => array( 'feature_1', 'feature_2', 'feature_3', 'feature_4' ),
+            ),
+            'info' => array(
+                'title'        => __( 'Info Section', 'ai-auto-style' ),
+                'pattern_slug' => 'aias/info',
+                'placeholders' => array( 'info_title', 'info_body' ),
+            ),
+            'cta' => array(
+                'title'        => __( 'Call to Action Section', 'ai-auto-style' ),
+                'pattern_slug' => 'aias/cta',
+                'placeholders' => array( 'cta_headline', 'cta_text' ),
+            ),
+            'pricing' => array(
+                'title'        => __( 'Pricing Section', 'ai-auto-style' ),
+                'pattern_slug' => 'aias/pricing',
+                'placeholders' => array( 'price_title', 'price_price', 'price_desc' ),
+            ),
+            'faq' => array(
+                'title'        => __( 'FAQ Section', 'ai-auto-style' ),
+                'pattern_slug' => 'aias/faq',
+                'placeholders' => array( 'faq_q1', 'faq_a1', 'faq_q2', 'faq_a2' ),
             ),
         );
     }
