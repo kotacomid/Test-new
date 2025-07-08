@@ -18,7 +18,6 @@ define( 'GAI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 
 // Load modules.
 require_once GAI_PLUGIN_DIR . 'includes/Patterns.php';
-require_once GAI_PLUGIN_DIR . 'includes/Templates.php';
 require_once GAI_PLUGIN_DIR . 'includes/OpenAI.php';
 require_once GAI_PLUGIN_DIR . 'includes/Generator.php';
 
@@ -48,7 +47,7 @@ function gai_render_admin() {
         $desc     = sanitize_textarea_field( wp_unslash( $_POST['gai_desc'] ) );
         $sections = isset( $_POST['gai_sections'] ) ? array_map( 'sanitize_key', (array) $_POST['gai_sections'] ) : array();
 
-        $post_id = AIAS_Generator::generate_page( $desc, $sections );
+        $post_id = GAI_Generator::generate_page( $desc, $sections );
         if ( is_wp_error( $post_id ) ) {
             echo '<div class="notice notice-error"><p>' . esc_html( $post_id->get_error_message() ) . '</p></div>';
         } else {
