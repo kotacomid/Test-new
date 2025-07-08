@@ -1,0 +1,59 @@
+<?php
+/**
+ * Plugin Name:       Green AI Landing MVP
+ * Description:       Generate draft landing pages from GreenShift section patterns filled with AI content.
+ * Version:           0.1.0
+ * Requires at least: 6.2
+ * Author:            MVP
+ * License:           GPL v2 or later
+ *
+ * @package Green_AI_Landing
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+define( 'GAI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+
+// Load modules.
+require_once GAI_PLUGIN_DIR . 'includes/Patterns.php';
+require_once GAI_PLUGIN_DIR . 'includes/Templates.php';
+require_once GAI_PLUGIN_DIR . 'includes/OpenAI.php';
+require_once GAI_PLUGIN_DIR . 'includes/Generator.php';
+
+// Register admin menu.
+add_action( 'admin_menu', function () {
+    add_menu_page( 'AI Landing', 'AI Landing', 'edit_posts', 'gai-landing', 'gai_render_admin', 'dashicons-text', 30 );
+} );
+
+function gai_render_admin() {
+    ?>
+    <div class="wrap">
+        <h1>Generate Landing Page</h1>
+        <form method="post">
+            <?php wp_nonce_field( 'gai_generate' ); ?>
+            <p><label for="gai_desc">Deskripsi bisnis / tujuan halaman</label><br>
+                <textarea name="gai_desc" id="gai_desc" class="widefat" rows="4" required></textarea></p>
+            <p><label>Section yang akan digunakan:</label><br>
+                <?php foreach ( GAIPatterns::sections_list() as $slug => $section ) : ?>
+                    <label><input type="checkbox" name="gai_sections[]" value="<?php echo esc_attr( $slug ); ?>" checked> <?php echo esc_html( $section['title'] ); ?></label><br>
+                <?php endforeach; ?>
+            </p>
+            <p><input type="submit" class="button button-primary" value="Generate Page"></p>
+        </form>
+    </div>
+    <?php
+    if ( isset( $_POST['gai_desc'] ) && check_admin_referer( 'gai_generate' ) ) {
+        $desc     = sanitize_textarea_field( wp_unslash( $_POST['gai_desc'] ) );
+        $sections = isset( $_POST['gai_sections'] ) ? array_map( 'sanitize_key', (array) $_POST['gai_sections'] ) : array();
+
+        $post_id = AIAS_Generator::generate_page( $desc, $sections );
+        if ( is_wp_error( $post_id ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( $post_id->get_error_message() ) . '</p></div>';
+        } else {
+            $url = get_edit_post_link( $post_id, '');
+            echo '<div class="notice notice-success"><p>Berhasil! <a href="' . esc_url( $url ) . '">Buka halaman baru »</a></p></div>';
+        }
+    }
+}
