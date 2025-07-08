@@ -20,6 +20,9 @@ define( 'GAI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 require_once GAI_PLUGIN_DIR . 'includes/Patterns.php';
 require_once GAI_PLUGIN_DIR . 'includes/OpenAI.php';
 require_once GAI_PLUGIN_DIR . 'includes/Generator.php';
+require_once GAI_PLUGIN_DIR . 'includes/Rest.php';
+
+add_action( 'admin_enqueue_scripts', function( $hook ){ if( $hook==='toplevel_page_gai-landing'){ wp_enqueue_script('gai-admin', plugin_dir_url(__FILE__).'admin.js',['wp-api-fetch','wp-element'],null,true); wp_localize_script('gai-admin','GAI',{nonce:wp_create_nonce('wp_rest')}); }} );
 
 // Register admin menu.
 add_action( 'admin_menu', function () {
