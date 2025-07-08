@@ -1,0 +1,52 @@
+[
+  {
+    "id": "section_hero",
+    "elType": "section",
+    "settings": {
+      "structure": "full_width"
+    },
+    "elements": [
+      {
+        "id": "column_hero",
+        "elType": "column",
+        "elements": [
+          {
+            "id": "headline_widget",
+            "elType": "widget",
+            "widgetType": "heading",
+            "settings": {
+              "title": "{{headline}}",
+              "align": "center",
+              "size": "xl"
+            }
+          },
+          {
+            "id": "desc_widget",
+            "elType": "widget",
+            "widgetType": "text-editor",
+            "settings": {
+              "editor": "{{description}}",
+              "align": "center"
+            }
+          },
+          {
+            "id": "btn_widget",
+            "elType": "widget",
+            "widgetType": "button",
+            "settings": {
+              "text": "{{cta_text}}",
+              "link": {
+                "url": "{{cta_link}}",
+                "is_external": "false",
+                "nofollow": "false"
+              },
+              "align": "center",
+              "size": "lg"
+            }
+          }
+        ]
+      }
+    ],
+    "isInner": false
+  }
+]
