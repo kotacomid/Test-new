@@ -73,6 +73,14 @@
 
 		const isGenerateDisabled = loading || ! templateSlug || ! business;
 
+		// Clear error while typing
+		useEffect( () => {
+			if ( error ) {
+				setError( null );
+			}
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [ templateSlug, business ] );
+
 		// auto hide success notice
 		useEffect( () => {
 			if ( success ) {
@@ -103,6 +111,16 @@
 									onChange={ setBusiness }
 									placeholder="Contoh: Laundry kiloan berbasis aplikasi mobile"
 								/>
+								{ templateSlug && templates[ templateSlug ] && (
+									<Notice status="info" isDismissible={ false }>
+										<p>Konten yang akan di-generate:</p>
+										<ul style={{ marginLeft: '1em' }}>
+											{ templates[ templateSlug ].placeholders.map( ( ph ) => (
+												<li key={ ph }>{ ph }</li>
+											) ) }
+										</ul>
+									</Notice>
+								)}
 								<Button isPrimary disabled={ isGenerateDisabled } onClick={ handleGenerate }>
 									{ loading ? <Spinner /> : 'Generate & Insert' }
 								</Button>
