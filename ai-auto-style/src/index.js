@@ -1,164 +1,71 @@
+/* eslint-disable no-console */
 ( function ( wp ) {
 	const { registerPlugin } = wp.plugins;
 	const { PluginSidebar, PluginSidebarMoreMenuItem } = wp.editPost;
-	const { PanelBody, TextControl, Button, Spinner, Notice } = wp.components;
-	const { Fragment, useState } = wp.element;
-	const { createBlock } = wp.blocks;
+	const { PanelBody, SelectControl, TextControl, Button, Spinner, Notice } = wp.components;
+	const { Fragment, useState, useEffect } = wp.element;
+	const { rawHandler } = wp.blocks;
 	const { dispatch } = wp.data;
 
-	/** Map shorthand names to actual Gutenberg/GreenShift block names */
-	const BLOCK_MAP = {
-		container: 'greenshift-blocks/box',
-		row: 'greenshift-blocks/row',
-		column: 'greenshift-blocks/column',
-		heading: 'greenshift-blocks/advanced-heading',
-		text: 'core/paragraph',
-		paragraph: 'core/paragraph',
-		image: 'greenshift-blocks/advanced-image',
-		button: 'greenshift-blocks/button',
-		video: 'greenshift-blocks/video',
-		infobox: 'greenshift-blocks/infobox',
-	};
+	const apiFetch = wp.apiFetch;
 
-	/**
-	 * Transform AI attributes to actual block attribute keys for specific blocks.
-	 * @param {string} blockName Resolved Gutenberg block name.
-	 * @param {Object} attrs AI provided attributes.
-	 * @return {Object}
-	 */
-	const transformAttributes = ( blockName, attrs = {} ) => {
-		const a = { ...attrs };
-
-		switch ( blockName ) {
-			case 'greenshift-blocks/advanced-heading':
-				// AI may send "text" instead of "content".
-				if ( a.text && ! a.content ) {
-					a.content = a.text;
-					delete a.text;
-				}
-				break;
-			case 'core/paragraph':
-				if ( a.text && ! a.content ) {
-					a.content = a.text;
-					delete a.text;
-				}
-				break;
-			case 'greenshift-blocks/button':
-				if ( a.label && ! a.text ) {
-					a.text = a.label;
-					delete a.label;
-				}
-				if ( a.href && ! a.url ) {
-					a.url = a.href;
-					delete a.href;
-				}
-				break;
-			default:
-				break;
-		}
-		return a;
-	};
-
-	/**
-	 * Translate AI block object to Gutenberg block.
-	 * @param {Object} aiBlock { name, attributes, innerBlocks }
-	 * @return {BlockInstance}
-	 */
-	const buildBlockFromAI = ( aiBlock ) => {
-		if ( ! aiBlock || ! aiBlock.name ) {
-			throw new Error( 'Invalid block definition.' );
-		}
-
-		const resolvedName = BLOCK_MAP[ aiBlock.name ] || aiBlock.name;
-		const attrs = transformAttributes( resolvedName, aiBlock.attributes || {} );
-
-		let innerBlocks = [];
-		if ( Array.isArray( aiBlock.innerBlocks ) && aiBlock.innerBlocks.length ) {
-			innerBlocks = aiBlock.innerBlocks.map( buildBlockFromAI );
-		}
-
-		return createBlock( resolvedName, attrs, innerBlocks );
-	};
-
-	/**
-	 * Apply global palette & fonts from AI layout if provided.
-	 */
-	const applyGlobalStyles = ( layout ) => {
-		if ( ! layout || ! layout.palette ) return;
-		const rootVars = Object.entries( layout.palette )
-			.map( ( [ key, val ] ) => `--aias-${ key }: ${ val };` )
-			.join( '' );
-		if ( rootVars ) {
-			let styleEl = document.getElementById( 'aias-palette' );
-			if ( ! styleEl ) {
-				styleEl = document.createElement( 'style' );
-				styleEl.id = 'aias-palette';
-				document.head.appendChild( styleEl );
-			}
-			styleEl.innerHTML = `:root{${ rootVars }}`;
-		}
-	};
-
-	const insertGeneratedBlocks = ( layout ) => {
-		// Apply palette first
-		applyGlobalStyles( layout );
-		if ( ! layout || ! Array.isArray( layout.sections ) ) {
-			console.warn( 'AI Auto Style: invalid layout schema', layout );
-			throw new Error( 'Invalid layout structure.' );
-		}
-
-		let blocksToInsert = [];
-		layout.sections.forEach( ( section ) => {
-			if ( ! section.blocks || ! Array.isArray( section.blocks ) ) {
-				return;
-			}
-			section.blocks.forEach( ( blk ) => {
-				try {
-					blocksToInsert.push( buildBlockFromAI( blk ) );
-				} catch ( e ) {
-					console.error( 'Block build failed', e );
-				}
-			} );
-		} );
-
-		if ( blocksToInsert.length ) {
-			dispatch( 'core/block-editor' ).insertBlocks( blocksToInsert );
-		}
-	};
-
-	const AIAutoStyleSidebar = () => {
-		const [ prompt, setPrompt ] = useState( '' );
+	const Sidebar = () => {
+		const [ templates, setTemplates ] = useState( {} );
+		const [ templatesLoading, setTemplatesLoading ] = useState( true );
+		const [ templateSlug, setTemplateSlug ] = useState( '' );
+		const [ business, setBusiness ] = useState( '' );
 		const [ loading, setLoading ] = useState( false );
 		const [ error, setError ] = useState( null );
 		const [ success, setSuccess ] = useState( false );
 
+		// Fetch template list on mount.
+		useEffect( () => {
+			(async () => {
+				try {
+					const data = await apiFetch( { path: '/ai-auto-style/v1/templates' } );
+					setTemplates( data );
+					const firstKey = Object.keys( data )[ 0 ] || '';
+					setTemplateSlug( firstKey );
+				} catch ( e ) {
+					console.error( e );
+					setError( 'Gagal memuat daftar template.' );
+				} finally {
+					setTemplatesLoading( false );
+				}
+			})();
+		}, [] );
+
 		const handleGenerate = async () => {
-			if ( ! prompt ) {
-				setError( 'Prompt is required.' );
+			setError( null );
+			setSuccess( false );
+			if ( ! templateSlug ) {
+				setError( 'Pilih template.' );
+				return;
+			}
+			if ( ! business ) {
+				setError( 'Deskripsi bisnis wajib diisi.' );
 				return;
 			}
 
 			setLoading( true );
-			setError( null );
-			setSuccess( false );
-
 			try {
-				const result = await wp.apiFetch( {
-					path: '/ai-auto-style/v1/generate',
+				const resp = await apiFetch( {
+					path: '/ai-auto-style/v1/fill',
 					method: 'POST',
-					data: { prompt },
+					data: { template: templateSlug, business },
 				} );
 
-				if ( result && result.success ) {
-					insertGeneratedBlocks( result.data );
+				if ( resp && resp.success && resp.html ) {
+					const blocks = rawHandler( { HTML: resp.html } );
+					dispatch( 'core/block-editor' ).insertBlocks( blocks );
 					setSuccess( true );
-					setError( null );
-					setPrompt( '' );
+					setBusiness( '' );
 				} else {
-					setError( 'Unexpected response from server.' );
+					setError( 'Respons server tidak valid.' );
 				}
-			} catch ( err ) {
-				setError( err.message || 'Request failed.' );
+			} catch ( e ) {
+				setError( e.message || 'Permintaan gagal.' );
+				console.error( e );
 			} finally {
 				setLoading( false );
 			}
@@ -166,38 +73,41 @@
 
 		return (
 			<Fragment>
-				<PluginSidebarMoreMenuItem target="ai-auto-style-sidebar">
-					AI Auto Style
+				<PluginSidebarMoreMenuItem target="ai-template-filler">
+					AI Template Filler
 				</PluginSidebarMoreMenuItem>
-				<PluginSidebar
-					name="ai-auto-style-sidebar"
-					title="AI Auto Style"
-					icon="art"
-				>
-					<PanelBody title="Generate Styles" initialOpen={ true }>
-						<TextControl
-							label="Prompt"
-							value={ prompt }
-							onChange={ setPrompt }
-							placeholder="Describe the layout you want..."
-						/>
-						<Button
-							isPrimary
-							disabled={ loading }
-							onClick={ handleGenerate }
-						>
-							{ loading ? <Spinner /> : 'Generate & Insert' }
-						</Button>
+				<PluginSidebar name="ai-template-filler" title="AI Template Filler" icon="welcome-add-page">
+					<PanelBody title="Generate Landing Page" initialOpen>
+						{ templatesLoading && <Spinner /> }
+						{ ! templatesLoading && (
+							<Fragment>
+								<SelectControl
+									label="Pilih Template"
+									value={ templateSlug }
+									options={ Object.entries( templates ).map( ( [ key, obj ] ) => ( { label: obj.title, value: key } ) ) }
+									onChange={ setTemplateSlug }
+								/>
+								<TextControl
+									label="Deskripsi Bisnis"
+									value={ business }
+									onChange={ setBusiness }
+									placeholder="Contoh: Laundry kiloan berbasis aplikasi mobile"
+								/>
+								<Button isPrimary disabled={ loading } onClick={ handleGenerate }>
+									{ loading ? <Spinner /> : 'Generate & Insert' }
+								</Button>
+							</Fragment>
+						) }
 						{ error && <Notice status="error" isDismissible={ false }>{ error }</Notice> }
-						{ success && ! error && <Notice status="success" isDismissible={ false }>{ 'Blocks inserted!' }</Notice> }
+						{ success && <Notice status="success" isDismissible={ false }>Blok berhasil ditambahkan!</Notice> }
 					</PanelBody>
 				</PluginSidebar>
 			</Fragment>
 		);
 	};
 
-	registerPlugin( 'ai-auto-style', {
-		icon: 'art',
-		render: AIAutoStyleSidebar,
+	registerPlugin( 'ai-template-filler', {
+		icon: 'welcome-add-page',
+		render: Sidebar,
 	} );
 } )( window.wp );
