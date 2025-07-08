@@ -1,0 +1,15 @@
+python programming
+machine learning
+data science
+web development
+artificial intelligence
+javascript
+react
+django
+flask
+database design
+algorithms
+computer vision
+natural language processing
+deep learning
+statistics
