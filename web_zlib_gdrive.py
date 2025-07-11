@@ -2,16 +2,25 @@ import os
 import shutil
 import asyncio
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from zlibrary import ZLibrary
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
+from google.auth.transport.requests import Request as GRequest
 from google.oauth2.credentials import Credentials
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 CSV_FILE = "zlib_metadata.csv"
 COVERS_DIR = "covers"
@@ -20,6 +29,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 # In-memory config
 ZLIB_ACCOUNTS = []
+SEARCH_RESULTS = []  # List of dicts, reset per session
 
 # --- GOOGLE DRIVE AUTH ---
 def gdrive_auth():
@@ -28,7 +38,7 @@ def gdrive_auth():
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            creds.refresh(GRequest())
         else:
             flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
@@ -44,44 +54,26 @@ def upload_to_drive(service, file_path, mime_type, folder_id=None):
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return file.get('id')
 
-async def zlib_download_and_upload(account, query, gdrive_service):
+async def zlib_search(account, query):
     zlib = ZLibrary()
     await zlib.login(account['email'], account['password'])
     results = await zlib.search(query)
-    if not results:
-        return None
-    book = results[0]
-    meta = await zlib.get_metadata(book['id'])
+    return results
+
+async def zlib_download(book_id, account):
+    zlib = ZLibrary()
+    await zlib.login(account['email'], account['password'])
+    meta = await zlib.get_metadata(book_id)
     # Download cover
     os.makedirs(COVERS_DIR, exist_ok=True)
-    cover_path = os.path.join(COVERS_DIR, f"{book['id']}.jpg")
+    cover_path = os.path.join(COVERS_DIR, f"{book_id}.jpg")
     if meta.get('cover_url'):
         await zlib.download_cover(meta['cover_url'], cover_path)
     # Download file
     os.makedirs(FILES_DIR, exist_ok=True)
-    file_path = os.path.join(FILES_DIR, f"{book['id']}.pdf")
-    await zlib.download_file(book['id'], file_path)
-    # Upload to Google Drive
-    cover_drive_id = upload_to_drive(gdrive_service, cover_path, 'image/jpeg') if os.path.exists(cover_path) else None
-    file_drive_id = upload_to_drive(gdrive_service, file_path, 'application/pdf')
-    # Store metadata
-    meta_row = {
-        'account': account['email'],
-        'book_id': book['id'],
-        'title': meta.get('title'),
-        'author': meta.get('author'),
-        'cover_drive_id': cover_drive_id,
-        'file_drive_id': file_drive_id,
-        'cover_path': cover_path if os.path.exists(cover_path) else '',
-        'file_path': file_path,
-    }
-    if os.path.exists(CSV_FILE):
-        df = pd.read_csv(CSV_FILE)
-        df = pd.concat([df, pd.DataFrame([meta_row])], ignore_index=True)
-    else:
-        df = pd.DataFrame([meta_row])
-    df.to_csv(CSV_FILE, index=False)
-    return meta_row
+    file_path = os.path.join(FILES_DIR, f"{book_id}.pdf")
+    await zlib.download_file(book_id, file_path)
+    return meta, cover_path, file_path
 
 @app.post("/upload-credentials")
 def upload_credentials(file: UploadFile = File(...)):
@@ -94,21 +86,69 @@ def add_account(email: str = Form(...), password: str = Form(...)):
     ZLIB_ACCOUNTS.append({"email": email, "password": password})
     return {"status": "account added", "total_accounts": len(ZLIB_ACCOUNTS)}
 
-@app.post("/run")
-def run_process(query: str = Form(...), background_tasks: BackgroundTasks = None):
-    if not os.path.exists("credentials.json"):
-        return JSONResponse(status_code=400, content={"error": "Upload credentials.json first"})
+@app.post("/search")
+async def search(query: str = Form(...), account_index: int = Form(0)):
     if not ZLIB_ACCOUNTS:
         return JSONResponse(status_code=400, content={"error": "Add at least one Z-Library account"})
-    background_tasks.add_task(run_all, query)
-    return {"status": "processing started"}
+    results = await zlib_search(ZLIB_ACCOUNTS[account_index], query)
+    global SEARCH_RESULTS
+    SEARCH_RESULTS = results
+    return {"results": results}
 
-def run_all(query):
+@app.get("/list-results")
+def list_results():
+    return {"results": SEARCH_RESULTS}
+
+@app.post("/download")
+async def download(book_id: str = Form(...), account_index: int = Form(0)):
+    meta, cover_path, file_path = await zlib_download(book_id, ZLIB_ACCOUNTS[account_index])
+    # Simpan metadata ke CSV
+    meta_row = {
+        'account': ZLIB_ACCOUNTS[account_index]['email'],
+        'book_id': book_id,
+        'title': meta.get('title'),
+        'author': meta.get('author'),
+        'cover_path': cover_path if os.path.exists(cover_path) else '',
+        'file_path': file_path,
+    }
+    if os.path.exists(CSV_FILE):
+        df = pd.read_csv(CSV_FILE)
+        df = pd.concat([df, pd.DataFrame([meta_row])], ignore_index=True)
+    else:
+        df = pd.DataFrame([meta_row])
+    df.to_csv(CSV_FILE, index=False)
+    return {"meta": meta_row}
+
+@app.get("/get-cover/{book_id}")
+def get_cover(book_id: str):
+    cover_path = os.path.join(COVERS_DIR, f"{book_id}.jpg")
+    if not os.path.exists(cover_path):
+        return JSONResponse(status_code=404, content={"error": "Cover not found"})
+    return FileResponse(cover_path, media_type='image/jpeg', filename=f"{book_id}.jpg")
+
+@app.get("/get-file/{book_id}")
+def get_file(book_id: str):
+    file_path = os.path.join(FILES_DIR, f"{book_id}.pdf")
+    if not os.path.exists(file_path):
+        return JSONResponse(status_code=404, content={"error": "File not found"})
+    return FileResponse(file_path, media_type='application/pdf', filename=f"{book_id}.pdf")
+
+@app.post("/upload-drive")
+def upload_drive(book_id: str = Form(...)):
     gdrive_service = gdrive_auth()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    tasks = [zlib_download_and_upload(acc, query, gdrive_service) for acc in ZLIB_ACCOUNTS]
-    loop.run_until_complete(asyncio.gather(*tasks))
+    cover_path = os.path.join(COVERS_DIR, f"{book_id}.jpg")
+    file_path = os.path.join(FILES_DIR, f"{book_id}.pdf")
+    cover_drive_id = upload_to_drive(gdrive_service, cover_path, 'image/jpeg') if os.path.exists(cover_path) else None
+    file_drive_id = upload_to_drive(gdrive_service, file_path, 'application/pdf') if os.path.exists(file_path) else None
+    # Update CSV
+    if os.path.exists(CSV_FILE):
+        df = pd.read_csv(CSV_FILE)
+        idx = df[df['book_id'] == book_id].index
+        if len(idx) > 0:
+            df.loc[idx, 'cover_drive_id'] = cover_drive_id
+            df.loc[idx, 'file_drive_id'] = file_drive_id
+            df.to_csv(CSV_FILE, index=False)
+    return {"cover_drive_id": cover_drive_id, "file_drive_id": file_drive_id}
 
 @app.get("/download-csv")
 def download_csv():
@@ -116,6 +156,16 @@ def download_csv():
         return JSONResponse(status_code=404, content={"error": "No CSV found"})
     return FileResponse(CSV_FILE, media_type='text/csv', filename=CSV_FILE)
 
+@app.post("/reset-session")
+def reset_session():
+    global SEARCH_RESULTS
+    SEARCH_RESULTS = []
+    return {"status": "session reset"}
+
 @app.get("/")
 def root():
     return {"message": "Z-Library to Google Drive Web Bot. Use /docs for API UI."}
+
+# WSGI/ASGI compatibility
+def app_factory():
+    return app
