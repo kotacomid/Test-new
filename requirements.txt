@@ -1,0 +1,4 @@
+zlibrary
+pydrive2
+aiohttp
+python-dotenv
