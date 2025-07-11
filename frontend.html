@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Z-Library to Google Drive Bot</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: 2em auto; }
+    input, button, select { margin: 0.5em 0; }
+    .result { border: 1px solid #ccc; padding: 0.5em; margin: 0.5em 0; }
+    .step { margin-bottom: 2em; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Z-Library to Google Drive Bot (Frontend Demo)</h1>
+
+  <div class="step">
+    <h2>1. Upload Google credentials.json</h2>
+    <input type="file" id="credfile">
+    <button onclick="uploadCreds()">Upload</button>
+    <span id="credstatus"></span>
+  </div>
+
+  <div class="step">
+    <h2>2. Tambah Akun Z-Library</h2>
+    <input type="email" id="zemail" placeholder="Email">
+    <input type="password" id="zpass" placeholder="Password">
+    <button onclick="addAccount()">Tambah Akun</button>
+    <span id="accstatus"></span>
+  </div>
+
+  <div class="step">
+    <h2>3. Cari Buku</h2>
+    <input type="text" id="query" placeholder="Judul/penulis/kata kunci">
+    <button onclick="searchBook()">Cari</button>
+    <span id="searchstatus"></span>
+    <div id="results"></div>
+  </div>
+
+  <div class="step">
+    <h2>4. Pilih & Download File/Cover</h2>
+    <select id="bookselect"></select>
+    <button onclick="downloadBook()">Download</button>
+    <span id="dlstatus"></span>
+    <div id="dlmeta"></div>
+  </div>
+
+  <div class="step">
+    <h2>5. Upload ke Google Drive</h2>
+    <input type="text" id="upbookid" placeholder="Book ID">
+    <button onclick="uploadDrive()">Upload</button>
+    <span id="upstatus"></span>
+  </div>
+
+  <div class="step">
+    <h2>6. Download Metadata CSV</h2>
+    <button onclick="downloadCSV()">Download CSV</button>
+    <span id="csvstatus"></span>
+  </div>
+
+  <script>
+    const API = window.location.origin; // Ganti jika backend beda host
+    let lastResults = [];
+
+    function uploadCreds() {
+      const file = document.getElementById('credfile').files[0];
+      if (!file) return alert('Pilih file credentials.json');
+      const form = new FormData();
+      form.append('file', file);
+      fetch(API + '/upload-credentials', { method: 'POST', body: form })
+        .then(r => r.json()).then(d => {
+          document.getElementById('credstatus').textContent = d.status || d.error || JSON.stringify(d);
+        });
+    }
+    function addAccount() {
+      const email = document.getElementById('zemail').value;
+      const password = document.getElementById('zpass').value;
+      if (!email || !password) return alert('Isi email dan password');
+      const form = new FormData();
+      form.append('email', email);
+      form.append('password', password);
+      fetch(API + '/add-account', { method: 'POST', body: form })
+        .then(r => r.json()).then(d => {
+          document.getElementById('accstatus').textContent = d.status || d.error || JSON.stringify(d);
+        });
+    }
+    function searchBook() {
+      const query = document.getElementById('query').value;
+      if (!query) return alert('Isi kata kunci');
+      const form = new FormData();
+      form.append('query', query);
+      fetch(API + '/search', { method: 'POST', body: form })
+        .then(r => r.json()).then(d => {
+          document.getElementById('searchstatus').textContent = d.results ? 'OK' : (d.error || JSON.stringify(d));
+          if (d.results) {
+            lastResults = d.results;
+            const sel = document.getElementById('bookselect');
+            sel.innerHTML = '';
+            d.results.forEach((b, i) => {
+              sel.innerHTML += `<option value="${b.id}">${b.title} - ${b.author}</option>`;
+            });
+            document.getElementById('results').innerHTML = d.results.map(b => `<div class='result'><b>${b.title}</b> (${b.author})<br>ID: ${b.id}</div>`).join('');
+          }
+        });
+    }
+    function downloadBook() {
+      const bookid = document.getElementById('bookselect').value;
+      if (!bookid) return alert('Pilih buku');
+      const form = new FormData();
+      form.append('book_id', bookid);
+      fetch(API + '/download', { method: 'POST', body: form })
+        .then(r => r.json()).then(d => {
+          document.getElementById('dlstatus').textContent = d.meta ? 'Downloaded' : (d.error || JSON.stringify(d));
+          if (d.meta) {
+            document.getElementById('dlmeta').innerHTML = `<pre>${JSON.stringify(d.meta, null, 2)}</pre>`;
+          }
+        });
+    }
+    function uploadDrive() {
+      const bookid = document.getElementById('upbookid').value;
+      if (!bookid) return alert('Isi Book ID');
+      const form = new FormData();
+      form.append('book_id', bookid);
+      fetch(API + '/upload-drive', { method: 'POST', body: form })
+        .then(r => r.json()).then(d => {
+          document.getElementById('upstatus').textContent = d.cover_drive_id || d.file_drive_id ? 'Uploaded' : (d.error || JSON.stringify(d));
+        });
+    }
+    function downloadCSV() {
+      fetch(API + '/download-csv').then(r => {
+        if (r.status !== 200) {
+          document.getElementById('csvstatus').textContent = 'CSV not found';
+          return;
+        }
+        r.blob().then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'zlib_metadata.csv';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          document.getElementById('csvstatus').textContent = 'CSV downloaded';
+        });
+      });
+    }
+  </script>
+</body>
+</html>
