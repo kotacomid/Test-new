@@ -26,8 +26,12 @@ class KotacomAI_Advanced_Templates {
     }
     
     private function init() {
-        // Hook into template system
-        add_action('init', array($this, 'register_advanced_templates'));
+        // Hook into template system safely
+        if (did_action('init')) {
+            $this->register_advanced_templates();
+        } else {
+            add_action('init', array($this, 'register_advanced_templates'));
+        }
         add_filter('kotacom_ai_available_templates', array($this, 'add_advanced_templates'));
     }
     

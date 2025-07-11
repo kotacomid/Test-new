@@ -190,8 +190,21 @@ class KotacomAI_API_Handler {
     public function generate_content($prompt, $parameters = array()) {
         $provider = get_option('kotacom_ai_api_provider', 'google_ai');
         
-        // Get API key from rotator
+        // Allow free AI integrator to select optimal provider
+        $provider = apply_filters('kotacom_ai_select_provider', $provider, $parameters);
+        
+        // Check if this is a free provider that should be handled by the free AI integrator
         $kotacom_ai = kotacom_ai();
+        if (isset($kotacom_ai->free_ai_integrator) && $this->is_free_provider($provider)) {
+            $result = $kotacom_ai->free_ai_integrator->generate_content($prompt, $parameters);
+            if ($result['success']) {
+                do_action('kotacom_ai_api_request_complete', $provider, true, 0);
+                return $result;
+            }
+            // If free provider fails, fall back to regular providers
+        }
+        
+        // Get API key from rotator
         $api_key = $kotacom_ai->api_key_rotator->get_next_available_key($provider);
         
         if (empty($api_key)) {
@@ -865,5 +878,21 @@ class KotacomAI_API_Handler {
      */
     public function is_free_tier($provider) {
         return isset($this->api_providers[$provider]['free_tier']) && $this->api_providers[$provider]['free_tier'];
+    }
+    
+    /**
+     * Check if provider is handled by free AI integrator
+     */
+    public function is_free_provider($provider) {
+        $free_providers = array(
+            'huggingface_free',
+            'ollama_local',
+            'cohere_free',
+            'together_free',
+            'groq_free',
+            'replicate_free'
+        );
+        
+        return in_array($provider, $free_providers);
     }
 }

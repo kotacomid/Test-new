@@ -29,10 +29,12 @@ class KotacomAI_Schema_Generator {
     }
     
     private function init() {
-        // Hook into content generation process
-        add_action('wp_head', array($this, 'add_schema_markup'));
-        add_action('kotacom_ai_after_content_generation', array($this, 'generate_post_schema'), 10, 4);
-        add_filter('kotacom_ai_generated_content', array($this, 'add_inline_schema'), 20, 3);
+        // Hook into content generation process safely
+        if (function_exists('add_action')) {
+            add_action('wp_head', array($this, 'add_schema_markup'));
+            add_action('kotacom_ai_after_content_generation', array($this, 'generate_post_schema'), 10, 4);
+            add_filter('kotacom_ai_generated_content', array($this, 'add_inline_schema'), 20, 3);
+        }
     }
     
     /**

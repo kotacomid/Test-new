@@ -98,6 +98,9 @@ class KotacomAI_Admin {
             array($this, 'display_api_rotator_page')
         );
         
+        // Include free AI settings page
+        include_once KOTACOM_AI_PLUGIN_DIR . 'admin/free-ai-settings.php';
+        
         add_submenu_page(
             'kotacom-ai',
             __('Settings', 'kotacom-ai'),

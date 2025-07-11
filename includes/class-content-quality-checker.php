@@ -19,9 +19,11 @@ class KotacomAI_Content_Quality_Checker {
     }
     
     private function init() {
-        // Hook into content generation process
-        add_filter('kotacom_ai_generated_content', array($this, 'analyze_and_improve_content'), 5, 3);
-        add_action('wp_head', array($this, 'add_quality_schema_markup'));
+        // Hook into content generation process safely
+        if (function_exists('add_filter')) {
+            add_filter('kotacom_ai_generated_content', array($this, 'analyze_and_improve_content'), 5, 3);
+            add_action('wp_head', array($this, 'add_quality_schema_markup'));
+        }
     }
     
     /**

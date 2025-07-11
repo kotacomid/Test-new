@@ -19,10 +19,12 @@ class KotacomAI_EEAT_Enhancer {
     }
     
     private function init() {
-        // Hook into content generation process
-        add_filter('kotacom_ai_generated_content', array($this, 'enhance_content_with_eeat'), 10, 3);
-        add_filter('kotacom_ai_prompt_template', array($this, 'enhance_prompt_with_eeat'), 10, 3);
-        add_action('kotacom_ai_after_content_generation', array($this, 'add_post_meta_eeat'), 10, 4);
+        // Hook into content generation process safely
+        if (function_exists('add_filter')) {
+            add_filter('kotacom_ai_generated_content', array($this, 'enhance_content_with_eeat'), 10, 3);
+            add_filter('kotacom_ai_prompt_template', array($this, 'enhance_prompt_with_eeat'), 10, 3);
+            add_action('kotacom_ai_after_content_generation', array($this, 'add_post_meta_eeat'), 10, 4);
+        }
     }
     
     /**

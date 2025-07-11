@@ -67,7 +67,8 @@ class KotacomAI {
     public $eeat_enhancer;
     public $quality_checker;
     public $advanced_templates;
-    public $schema_generator; 
+    public $schema_generator;
+    public $free_ai_integrator; 
     
     /**
      * Get single instance
@@ -104,6 +105,7 @@ class KotacomAI {
      * Load plugin dependencies
      */
     private function load_dependencies() {
+        // Core dependencies
         require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-database.php';
         require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-api-key-rotator.php';
         require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-api-handler.php';
@@ -114,11 +116,8 @@ class KotacomAI {
         require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-image-generator.php';
         require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-logger.php';
         
-        // Enhanced E-E-A-T and Quality Components
-        require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-eeat-enhancer.php';
-        require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-content-quality-checker.php';
-        require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-advanced-templates.php';
-        require_once KOTACOM_AI_PLUGIN_DIR . 'includes/class-schema-generator.php';
+        // Enhanced E-E-A-T and Quality Components (load safely)
+        $this->load_enhanced_components();
         
         if (is_admin()) {
             require_once KOTACOM_AI_PLUGIN_DIR . 'admin/class-admin.php';
@@ -126,9 +125,30 @@ class KotacomAI {
     }
     
     /**
+     * Load enhanced components safely
+     */
+    private function load_enhanced_components() {
+        $enhanced_files = array(
+            'includes/class-eeat-enhancer.php',
+            'includes/class-content-quality-checker.php', 
+            'includes/class-advanced-templates.php',
+            'includes/class-schema-generator.php',
+            'includes/class-free-ai-integrator.php'
+        );
+        
+        foreach ($enhanced_files as $file) {
+            $file_path = KOTACOM_AI_PLUGIN_DIR . $file;
+            if (file_exists($file_path)) {
+                require_once $file_path;
+            }
+        }
+    }
+    
+    /**
      * Initialize plugin components
      */
     private function init_components() {
+        // Core components
         $this->database = new KotacomAI_Database();
         $this->api_key_rotator = new KotacomAI_API_Key_Rotator();
         $this->api_handler = new KotacomAI_API_Handler();
@@ -137,17 +157,44 @@ class KotacomAI {
         $this->template_manager = new KotacomAI_Template_Manager(); 
         $this->template_editor = new KotacomAI_Template_Editor();
         
-        // Enhanced E-E-A-T and Quality Components
-        $this->eeat_enhancer = new KotacomAI_EEAT_Enhancer();
-        $this->quality_checker = new KotacomAI_Content_Quality_Checker();
-        $this->advanced_templates = new KotacomAI_Advanced_Templates();
-        $this->schema_generator = new KotacomAI_Schema_Generator();
+        // Enhanced E-E-A-T and Quality Components (initialize safely)
+        $this->init_enhanced_components();
         
         // Migrate legacy API keys on initialization
         $this->api_key_rotator->migrate_legacy_keys();
         
         if (is_admin()) {
             $this->admin = new KotacomAI_Admin();
+        }
+    }
+    
+    /**
+     * Initialize enhanced components safely
+     */
+    private function init_enhanced_components() {
+        // Initialize E-E-A-T Enhancer
+        if (class_exists('KotacomAI_EEAT_Enhancer')) {
+            $this->eeat_enhancer = new KotacomAI_EEAT_Enhancer();
+        }
+        
+        // Initialize Quality Checker
+        if (class_exists('KotacomAI_Content_Quality_Checker')) {
+            $this->quality_checker = new KotacomAI_Content_Quality_Checker();
+        }
+        
+        // Initialize Advanced Templates
+        if (class_exists('KotacomAI_Advanced_Templates')) {
+            $this->advanced_templates = new KotacomAI_Advanced_Templates();
+        }
+        
+        // Initialize Schema Generator
+        if (class_exists('KotacomAI_Schema_Generator')) {
+            $this->schema_generator = new KotacomAI_Schema_Generator();
+        }
+        
+        // Initialize Free AI Integrator
+        if (class_exists('KotacomAI_Free_AI_Integrator')) {
+            $this->free_ai_integrator = new KotacomAI_Free_AI_Integrator();
         }
     }
     
